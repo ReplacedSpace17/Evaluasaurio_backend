@@ -291,11 +291,11 @@ Si deseas contribuir:
 
 ## Licencia
 
-Este proyecto se distribuye bajo la **Licencia Pública General (GPL)**. Puedes consultar el archivo LICENSE para más detalles.
+Este proyecto fue desarrollado por [@Replacedspace17](https://github.com/ReplacedSpace17)  y [@cessdel](https://github.com/cessdel) parte de [@Singularity-MX](https://github.com/Singularity-MX/) y se distribuye bajo la **Licencia GPL**, permitiendo la libre distribución y modificación del software respetando los términos de la licencia.
 
 ----------
 
-Desarrollado por: @Replacedspace17, Singularity-MX
+
 
 
 
