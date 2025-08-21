@@ -81,7 +81,7 @@ mysql -u <usuario> -p < database_init.sql
 
 ## Configuración
 
-1.  Copiar el archivo `.env.example` a `.env` y configurar las variables de entorno:
+1.  Crear el archivo `.env` y configurar las variables de entorno:
     
 
 ```dotenv
