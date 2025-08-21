@@ -46,6 +46,7 @@ class TeacherController
             t.name,
             t.apellido_paterno,
             t.apellido_materno,
+            t.sexo,
             AVG(c.score) AS promedio_puntuacion,
             COUNT(c.id) AS total_calificaciones
             FROM
