@@ -8,7 +8,7 @@ class TeacherRequest
     public string $apellido_paterno;
     public string $apellido_materno;
     public string $sexo;
-    public ?int $department_id;
+    public string $departament;
     public ?string $email;
     public string $status;
     public string $created_at;

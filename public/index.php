@@ -9,6 +9,7 @@ use App\Controllers\SubjectController;
 use App\Controllers\CalificationToTeacherController;
 use App\Controllers\TeacherRequestController;
 use App\Controllers\SubjectRequestController;
+use App\Controllers\StatisticsController;
 
 // Cargar configuración
 $settings = require __DIR__ . '/../config/settings.php';
@@ -41,6 +42,7 @@ $calificationController = new CalificationToTeacherController($pdo);
 $CalificationToTeacherController = new CalificationToTeacherController($pdo);
 $teacherRequestController = new TeacherRequestController($pdo);
 $subjectRequestController = new SubjectRequestController($pdo);
+$statisticsController = new StatisticsController($pdo);
 
 // Rutas
 $app->get('/', function ($request, $response) {
@@ -80,11 +82,13 @@ $app->get('/publications/teachers', [$calificationController, 'getPublications']
 
 
 $app->get('/teacher_requests', [$teacherRequestController, 'getAll']);
-$app->post('/teacher_requests', [$teacherRequestController, 'create']);
+$app->post('/teacher_requests/add', [$teacherRequestController, 'create']);
 
 $app->get('/subject_requests', [$subjectRequestController, 'getAll']);
 $app->post('/subject_requests', [$subjectRequestController, 'create']);
 
+$app->get('/admin/statistics', [$statisticsController, 'getAll']);
+$app->post('/analytics', [$statisticsController, 'create']);
 $app->run();
 
 

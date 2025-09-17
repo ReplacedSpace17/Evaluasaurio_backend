@@ -23,37 +23,60 @@ class TeacherRequestController
         $response->getBody()->write($payload);
         return $response->withHeader('Content-Type', 'application/json');
     }
-
 public function create(Request $request, Response $response): Response
 {
-    $data = json_decode($request->getBody()->getContents(), true);
+    // Leer el cuerpo de la petición
+    $body = $request->getBody()->getContents();
+    $data = json_decode($body, true);
+
+    // Log del contenido recibido
+    error_log("📥 Datos recibidos para TeacherRequest: " . print_r($data, true));
+
+    if (!$data) {
+        $payload = [
+            'status' => 'error',
+            'message' => 'No se recibió un JSON válido'
+        ];
+        $response->getBody()->write(json_encode($payload));
+        return $response
+            ->withHeader('Content-Type', 'application/json')
+            ->withStatus(400);
+    }
 
     try {
         $stmt = $this->pdo->prepare("
-            INSERT INTO teacher_requests (name, apellido_paterno, apellido_materno, sexo, department_id, email)
-            VALUES (:name, :apellido_paterno, :apellido_materno, :sexo, :department_id, :email)
+            INSERT INTO teacher_requests (name, apellido_paterno, apellido_materno, sexo, department, email)
+            VALUES (:name, :apellido_paterno, :apellido_materno, :sexo, :department, :email)
         ");
+
         $stmt->execute([
-            ':name' => $data['name'],
-            ':apellido_paterno' => $data['apellido_paterno'],
-            ':apellido_materno' => $data['apellido_materno'],
-            ':sexo' => $data['sexo'],
-            ':department_id' => $data['department_id'] ?? null,
+            ':name' => $data['name'] ?? null,
+            ':apellido_paterno' => $data['apellido_paterno'] ?? null,
+            ':apellido_materno' => $data['apellido_materno'] ?? null,
+            ':sexo' => $data['sexo'] ?? null,
+            ':department' => $data['department'] ?? null,
             ':email' => $data['email'] ?? null
         ]);
+
+        // Log del ID insertado
+        $lastId = $this->pdo->lastInsertId();
+        error_log("✅ TeacherRequest insertada con ID: $lastId");
 
         $payload = [
             'status' => 'success',
             'message' => 'Solicitud creada correctamente',
-            'id' => $this->pdo->lastInsertId()
+            'id' => $lastId
         ];
 
         $response->getBody()->write(json_encode($payload));
         return $response
             ->withHeader('Content-Type', 'application/json')
-            ->withStatus(200); // Forzamos el 200
+            ->withStatus(200);
 
     } catch (\PDOException $e) {
+        // Log del error
+        error_log("❌ Error al insertar TeacherRequest: " . $e->getMessage());
+
         $payload = [
             'status' => 'error',
             'message' => $e->getMessage()
@@ -64,6 +87,7 @@ public function create(Request $request, Response $response): Response
             ->withStatus(500);
     }
 }
+
 
 
 }

@@ -65,3 +65,15 @@ CREATE TABLE `subject_requests` (
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `analytics_events` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `event_type` varchar(50) NOT NULL COMMENT 'pageview, click, session_start, etc.',
+  `page` varchar(255) DEFAULT NULL COMMENT 'ruta de la página (/home, /about)',
+  `ip_address` varchar(50) DEFAULT NULL,
+  `user_agent` text DEFAULT NULL,
+  `referer` text DEFAULT NULL,
+  `duration_seconds` int(11) DEFAULT NULL COMMENT 'duración de sesión en segundos',
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
