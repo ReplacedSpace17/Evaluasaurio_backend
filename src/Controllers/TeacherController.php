@@ -36,125 +36,85 @@ class TeacherController
         $response->getBody()->write($payload);
         return $response->withHeader('Content-Type', 'application/json');
     }
+public function getTopTeachers(Request $request, Response $response): Response
+{
+    // IDs de los departamentos a mostrar (aunque no tengan docentes top)
+    $departmentIds = [1, 2, 3, 4, 5, 6, 7];
 
-    //obtener los 10 mejores profesores mejor calificados
-    public function getTopTeachers(Request $request, Response $response): Response
-    {
-        $stmt = $this->pdo->query("
-            SELECT
-            t.id,
-            t.name,
+    // 1. Obtener nombres de todos los departamentos seleccionados
+    $sqlDeps = "
+        SELECT id, name 
+        FROM departments
+        WHERE id IN (" . implode(',', $departmentIds) . ")
+        ORDER BY id ASC
+    ";
+    $stmtDeps = $this->pdo->query($sqlDeps);
+    $departments = $stmtDeps->fetchAll(PDO::FETCH_ASSOC);
+
+    // 2. Obtener los docentes con promedio de calificación
+    $sqlTeachers = "
+        SELECT
+            d.id AS departamento_id,
+            d.name AS departamento,
+            t.id AS teacher_id,
+            t.name AS nombre,
             t.apellido_paterno,
             t.apellido_materno,
-            t.sexo,
             AVG(c.score) AS promedio_puntuacion,
             COUNT(c.id) AS total_calificaciones
-            FROM
-            teachers t
-            LEFT JOIN
-            califications_to_teacher c ON t.id = c.teacher_id
-            GROUP BY
-            t.id, t.name, t.apellido_paterno, t.apellido_materno
-            HAVING
-            total_calificaciones > 0 -- Solo profesores con calificaciones
-            ORDER BY
-            promedio_puntuacion DESC
-            LIMIT 10;
-        ");
-
-        $teachers = $stmt->fetchAll();
-
-        $result = [
-            'status' => 'success',
-            'data' => $teachers
-        ];
-
-        $payload = json_encode($result, JSON_UNESCAPED_UNICODE);
-        $response->getBody()->write($payload);
-        return $response->withHeader('Content-Type', 'application/json');
-    }public function getTeacherInfo(Request $request, Response $response, array $args): Response
-{
-    $id = (int)$args['id'];
-
-    // 1. Obtener info del perfil del docente
-    $stmtPerfil = $this->pdo->prepare("
-        SELECT 
-            t.id,
-            t.name,
-            t.apellido_paterno,
-            t.apellido_materno,
-            t.sexo,
-            d.name AS departamento,
-            t.created_at
         FROM teachers t
-        LEFT JOIN departments d ON t.department_id = d.id
-        WHERE t.id = :id
-    ");
-    $stmtPerfil->execute([':id' => $id]);
-    $perfil = $stmtPerfil->fetch(PDO::FETCH_ASSOC);
+        INNER JOIN departments d ON t.department_id = d.id
+        LEFT JOIN califications_to_teacher c ON t.id = c.teacher_id
+        WHERE d.id IN (" . implode(',', $departmentIds) . ")
+        GROUP BY d.id, d.name, t.id, t.name, t.apellido_paterno, t.apellido_materno
+        HAVING total_calificaciones > 0
+        ORDER BY d.id, promedio_puntuacion DESC
+    ";
 
-    // 2. Obtener calificaciones del docente
-    $stmtCalif = $this->pdo->prepare("
-        SELECT
-            c.id AS calificacion_id,
-            c.opinion,
-            c.keywords,
-            c.score,
-            c.created_at AS fecha,
-            s.name AS materia,
-            d.name AS departamento
-        FROM califications_to_teacher c
-        LEFT JOIN teachers t ON c.teacher_id = t.id
-        LEFT JOIN departments d ON t.department_id = d.id
-        LEFT JOIN subjects s ON c.materia_id = s.id
-        WHERE t.id = :id
-        ORDER BY c.created_at DESC
-    ");
-    $stmtCalif->execute([':id' => $id]);
-    $calificacionesRaw = $stmtCalif->fetchAll(PDO::FETCH_ASSOC);
+    $stmtTeachers = $this->pdo->query($sqlTeachers);
+    $rows = $stmtTeachers->fetchAll(PDO::FETCH_ASSOC);
 
-    $calificaciones = [];
-    $keywordCounter = [];
-
-    foreach ($calificacionesRaw as $calif) {
-        // Convertir keywords en array limpio
-        $keywordsArray = array_filter(array_map('trim', explode(',', $calif['keywords'])));
-
-        // Contar para el top global
-        foreach ($keywordsArray as $word) {
-            $keywordCounter[$word] = ($keywordCounter[$word] ?? 0) + 1;
+    // 3. Agrupar docentes por departamento
+    $grouped = [];
+    foreach ($rows as $row) {
+        $depName = $row['departamento'];
+        if (!isset($grouped[$depName])) {
+            $grouped[$depName] = [];
         }
 
-        // Reemplazar keywords string por array en la calificación
-        $calif['keywords'] = $keywordsArray;
-        $calificaciones[] = $calif;
+        $grouped[$depName][] = [
+            'Nombre' => $row['nombre'],
+            'Apellido_paterno' => $row['apellido_paterno'],
+            'Apellido_materno' => $row['apellido_materno'],
+            'Score_mean' => round((float)$row['promedio_puntuacion'], 2)
+        ];
     }
 
-    // 3. Calcular promedio de calificación
-    $promedio = null;
-    if (count($calificaciones) > 0) {
-        $totalScore = array_sum(array_column($calificaciones, 'score'));
-        $promedio = round($totalScore / count($calificaciones), 2);
+    // 4. Armar respuesta final con todos los departamentos
+    $result = [];
+    foreach ($departments as $dep) {
+        $depName = $dep['name'];
+        $profesores = $grouped[$depName] ?? [];
+
+        // Solo los 3 mejores
+        $topProfes = array_slice($profesores, 0, 3);
+
+        // Agregar posición (Top: 1, 2, 3)
+        foreach ($topProfes as $i => &$p) {
+            $p['Top'] = $i + 1;
+        }
+
+        $result[] = [
+            "Departamento" => $depName,
+            "Top" => $topProfes
+        ];
     }
 
-    // 4. Top 5 keywords globales
-    arsort($keywordCounter);
-    $topKeywords = array_slice($keywordCounter, 0, 5, true);
-
-    // 5. Construir el JSON de salida
-    $data = [
-        "perfil" => $perfil,
-        "promedio_calificacion" => $promedio,
-        "top_keywords" => $topKeywords,
-        "calificaciones" => $calificaciones
-    ];
-
-    $response->getBody()->write(json_encode($data, JSON_UNESCAPED_UNICODE));
+    // 5. Devolver JSON
+    $payload = json_encode($result, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+    $response->getBody()->write($payload);
     return $response->withHeader('Content-Type', 'application/json');
 }
-
-
-
 
     // Obtener maestro por ID
     public function getById(Request $request, Response $response, array $args): Response

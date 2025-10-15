@@ -10,6 +10,8 @@ use App\Controllers\CalificationToTeacherController;
 use App\Controllers\TeacherRequestController;
 use App\Controllers\SubjectRequestController;
 use App\Controllers\StatisticsController;
+use App\Controllers\ReportsController;
+
 
 // Cargar configuración
 $settings = require __DIR__ . '/../config/settings.php';
@@ -43,6 +45,8 @@ $CalificationToTeacherController = new CalificationToTeacherController($pdo);
 $teacherRequestController = new TeacherRequestController($pdo);
 $subjectRequestController = new SubjectRequestController($pdo);
 $statisticsController = new StatisticsController($pdo);
+$reportsController = new ReportsController($pdo);
+
 
 // Rutas
 $app->get('/', function ($request, $response) {
@@ -89,6 +93,18 @@ $app->post('/subject_requests', [$subjectRequestController, 'create']);
 
 $app->get('/admin/statistics', [$statisticsController, 'getAll']);
 $app->post('/analytics', [$statisticsController, 'create']);
+
+$app->get('/departamentos/all', [$departmentController, 'getBasic']);
+$app->post('/departamentos/evaluacion', [$departmentController, 'addEvaluationDepartament']);
+$app->get('/departamentos/evaluacion/{id}', [$departmentController, 'getDepartmentEvaluationById']);
+$app->get('/departamentos/opiniones', [$departmentController, 'getAllDepartmentOpinions']);
+$app->get('/departments/top', [$departmentController, 'getTopDepartments']);
+
+$app->post('/reports/add', [$reportsController, 'create']);
+$app->get('/reports/all', [$reportsController, 'getAllReports']);
+$app->get('/uploads/reports/{path:.+}', [ReportsController::class, 'serveImage']);
+
+
 $app->run();
 
 
