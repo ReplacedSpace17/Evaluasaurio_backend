@@ -1,6 +1,7 @@
 <?php
 namespace App\Controllers;
 
+use App\Utils\Paginator;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use PDO;
@@ -40,7 +41,17 @@ public function getCount(Request $request, Response $response): Response
     //obtener las calificaciones puntuadaas de todos
     public function getPublications(Request $request, Response $response): Response
     {
-        $stmt = $this->pdo->query("
+        $queryParams = $request->getQueryParams();
+        $teacherFind = $queryParams["teacher"] ?? null;
+        $subjectFind = $queryParams["subject"] ?? null;
+        $despartamentFind = $queryParams["departament"] ?? null;
+        $scoreFind = $queryParams["score"] ?? null;
+        $initDate = $queryParams["initDate"] ?? null;
+        $endDate = $queryParams["endDate"] ?? null;
+        $paramsSql = [];
+        $conditions = [];
+
+        $query = "
         SELECT
             t.id,
             t.name AS nombre_docente,
@@ -56,11 +67,41 @@ public function getCount(Request $request, Response $response): Response
         LEFT JOIN teachers t ON c.teacher_id = t.id
         LEFT JOIN departments d ON t.department_id = d.id
         LEFT JOIN subjects s ON c.materia_id = s.id
-        ORDER BY c.created_at DESC;
-        ");
-        $publications = $stmt->fetchAll();
+        ";
 
-        $payload = json_encode($publications, JSON_UNESCAPED_UNICODE);
+        if ($teacherFind) {
+            $conditions[] = "t.id = :teacherId";
+            $paramsSql[":teacherId"] = $teacherFind;
+        }
+        if ($subjectFind) {
+            $conditions[] = "s.id = :subjectId";
+            $paramsSql[":subjectId"] = $subjectFind;
+        }
+        if ($despartamentFind) {
+            $conditions[] = "d.id = :departamentId";
+            $paramsSql[":departamentId"] = $despartamentFind;
+        }
+        if ($scoreFind) {
+            $conditions[] = "FLOOR(c.score) = :score";
+            $paramsSql[":score"] = $scoreFind;
+        }
+        if($initDate && $endDate){
+            $conditions[] = "DATE(c.created_at) BETWEEN :initDate AND :endDate";
+            $paramsSql[":initDate"] = $initDate;
+            $paramsSql[":endDate"] = $endDate;
+            
+        }
+        if (!empty($conditions)) {
+            $whereClause = " WHERE " . implode(" AND ", $conditions);
+            
+            $query .= $whereClause;
+        }
+
+        $query .= " ORDER BY c.created_at DESC";
+        $paginator = new Paginator($request, $this->pdo);
+        $dataPagination = $paginator->paginate($query, $paramsSql);
+
+        $payload = json_encode($dataPagination, JSON_UNESCAPED_UNICODE);
         $response->getBody()->write($payload);
         return $response->withHeader('Content-Type', 'application/json');
     }
