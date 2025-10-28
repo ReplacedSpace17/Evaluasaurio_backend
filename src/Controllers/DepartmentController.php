@@ -1,6 +1,7 @@
 <?php
 namespace App\Controllers;
 
+use App\Utils\Paginator;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use PDO;
@@ -16,10 +17,29 @@ class DepartmentController
 
     public function getAll(Request $request, Response $response): Response
     {
-        $stmt = $this->pdo->query("SELECT id, name, created_at FROM departments");
-        $departments = $stmt->fetchAll();
+        $queryParams = $request->getQueryParams();
+        $textFind = $queryParams["find"] ?? null;
+        $paramsSql = [];
+        $conditions = [];
 
-        $payload = json_encode($departments, JSON_UNESCAPED_UNICODE);
+        $query = "SELECT id, name, created_at FROM departments";
+        
+        if($textFind){
+            $searchTerm = "%".strtolower(trim($textFind))."%";
+            
+            $conditions[] = " LOWER(name) LIKE :find_name ";
+            $paramsSql[":find_name"] = $searchTerm;
+        }
+        if (!empty($conditions)) {
+            $whereClause = " WHERE " . implode(" AND ", $conditions);
+            
+            $query .= $whereClause;
+        }
+
+        $paginator = new Paginator($request, $this->pdo);
+        $dataPagination = $paginator->paginate($query, $paramsSql);
+
+        $payload = json_encode($dataPagination, JSON_UNESCAPED_UNICODE);
         $response->getBody()->write($payload);
         return $response->withHeader('Content-Type', 'application/json');
     }

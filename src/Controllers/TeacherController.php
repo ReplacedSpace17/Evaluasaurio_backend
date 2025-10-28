@@ -1,6 +1,7 @@
 <?php
 namespace App\Controllers;
 
+use App\Utils\Paginator;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use PDO;
@@ -17,19 +18,44 @@ class TeacherController
     // Obtener todos los maestros
     public function getAll(Request $request, Response $response): Response
     {
-        $stmt = $this->pdo->query("
+        $queryParams = $request->getQueryParams();
+        $textFind = $queryParams["find"] ?? null;
+        $paramsSql = [];
+        
+        $query = "
             SELECT 
                 t.id, t.name, t.apellido_paterno, t.apellido_materno, t.sexo, 
                 t.department_id, d.name as department_name, t.created_at
             FROM teachers t
             LEFT JOIN departments d ON t.department_id = d.id
-        ");
+        ";
+        
+        //Agregamos filtros de busqueda segun sea necesario
+        if($textFind){
+            $searchTerm = "%".strtolower(trim($textFind))."%";
+            
+            $whereClause = "
+                WHERE 
+                    LOWER(t.name) LIKE :find_name OR 
+                    LOWER(t.apellido_paterno) LIKE :find_paterno OR 
+                    LOWER(t.apellido_materno) LIKE :find_materno
+            ";
 
-        $teachers = $stmt->fetchAll();
+            $paramsSql = [
+                ":find_name" => $searchTerm,
+                ":find_paterno" => $searchTerm,
+                ":find_materno" => $searchTerm,
+            ];
+
+            $query .= $whereClause;
+        }
+
+        $paginator = new Paginator($request, $this->pdo);
+        $dataPagination = $paginator->paginate($query, $paramsSql);
 
         $result = [
             'status' => 'success',
-            'data' => $teachers
+            ...$dataPagination,
         ];
 
         $payload = json_encode($result, JSON_UNESCAPED_UNICODE);
@@ -492,9 +518,16 @@ public function ObtenerComportamientoDocente(Request $request, Response $respons
 public function ObtenerOpinionesDocentePerfil(Request $request, Response $response, array $args): Response
 {
     $teacher_id = (int)$args['id'];
+    $queryParams = $request->getQueryParams();
+    $subjectFind = $queryParams["subject"] ?? null;
+    $scoreFind = $queryParams["score"] ?? null;
+    $initDate = $queryParams["initDate"] ?? null;
+    $endDate = $queryParams["endDate"] ?? null;
+    $paramsSql = [];
+    $conditions = [];
 
     // Consulta para obtener las calificaciones del docente
-    $stmt = $this->pdo->prepare("
+    $query = "
         SELECT 
             c.id AS calificacion_id,
             c.opinion,
@@ -508,18 +541,38 @@ public function ObtenerOpinionesDocentePerfil(Request $request, Response $respon
         LEFT JOIN teachers t ON c.teacher_id = t.id
         LEFT JOIN departments d ON t.department_id = d.id
         WHERE c.teacher_id = :teacher_id
-        ORDER BY c.created_at DESC
-    ");
+    ";
 
-    $stmt->execute(['teacher_id' => $teacher_id]);
-    $opiniones = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $paramsSql[":teacher_id"] = $teacher_id;
+    if ($subjectFind) {
+        $conditions[] = "s.id = :subjectId";
+        $paramsSql[":subjectId"] = $subjectFind;
+    }
+    if ($scoreFind) {
+        //El front solo envia valores enteros falla al momento de comparar con decimal por eso el redondeo
+        $conditions[] = "FLOOR(c.score) = :score";
+        $paramsSql[":score"] = $scoreFind;
+    }
+    if($initDate && $endDate){
+        $conditions[] = "DATE(c.created_at) BETWEEN :initDate AND :endDate";
+        $paramsSql[":initDate"] = $initDate;
+        $paramsSql[":endDate"] = $endDate;   
+    }
+    if (!empty($conditions)) {
+        $whereClause = " AND " .implode(" AND ", $conditions);
+        $query .= $whereClause;
+    }
+
+    $query .= " ORDER BY c.created_at DESC";
+    $paginator = new Paginator($request, $this->pdo);
+    $dataPagination = $paginator->paginate($query, $paramsSql, PDO::FETCH_ASSOC);
 
     // Transformamos keywords de texto a array
-    foreach ($opiniones as &$opinion) {
+    foreach ($dataPagination["data"] as &$opinion) {
         $opinion['keywords'] = json_decode($opinion['keywords'], true) ?: [];
     }
 
-    $response->getBody()->write(json_encode($opiniones, JSON_UNESCAPED_UNICODE));
+    $response->getBody()->write(json_encode($dataPagination, JSON_UNESCAPED_UNICODE));
     return $response->withHeader('Content-Type', 'application/json');
 }
 
