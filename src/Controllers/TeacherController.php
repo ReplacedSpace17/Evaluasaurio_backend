@@ -168,43 +168,77 @@ public function getTopTeachers(Request $request, Response $response): Response
     }
 
     // Actualizar maestro existente
-    public function update(Request $request, Response $response, array $args): Response
-    {
-        $id = (int)$args['id'];
-        $data = (array)$request->getParsedBody();
-
-        $sql = "UPDATE teachers SET 
-                    name = :name, 
-                    apellido_paterno = :apellido_paterno, 
-                    apellido_materno = :apellido_materno, 
-                    sexo = :sexo, 
-                    department_id = :department_id
-                WHERE id = :id";
-
-        $stmt = $this->pdo->prepare($sql);
-
-        try {
-            $stmt->execute([
-                'id' => $id,
-                'name' => $data['name'],
-                'apellido_paterno' => $data['apellido_paterno'],
-                'apellido_materno' => $data['apellido_materno'],
-                'sexo' => $data['sexo'],
-                'department_id' => $data['department_id'] ?? null,
-            ]);
-
-            if ($stmt->rowCount() === 0) {
-                $response->getBody()->write(json_encode(['error' => 'Teacher not found or no changes made']));
-                return $response->withStatus(404)->withHeader('Content-Type', 'application/json');
-            }
-
-            $response->getBody()->write(json_encode(['message' => 'Teacher updated']));
-            return $response->withHeader('Content-Type', 'application/json');
-        } catch (\PDOException $e) {
-            $response->getBody()->write(json_encode(['error' => $e->getMessage()]));
-            return $response->withStatus(400)->withHeader('Content-Type', 'application/json');
-        }
+ // Actualizar maestro existente
+public function update(Request $request, Response $response, array $args): Response
+{
+    $id = (int)$args['id'];
+    
+    // DEBUG COMPLETO
+    error_log("=== UPDATE DEBUG ===");
+    error_log("ID: " . $id);
+    
+    // Obtener todos los métodos posibles de datos
+    $parsedBody = $request->getParsedBody();
+    $bodyContents = $request->getBody()->getContents();
+    
+    error_log("Parsed Body: " . print_r($parsedBody, true));
+    error_log("Body Contents: " . $bodyContents);
+    error_log("Content Type: " . ($request->getHeaderLine('Content-Type') ?? 'No content type'));
+    
+    // Intentar diferentes formas de parsear
+    $data = (array)$parsedBody;
+    
+    // Si parsedBody está vacío, intentar parsear manualmente
+    if (empty($data) || (count($data) === 0)) {
+        error_log("ParsedBody vacío, intentando parse manual...");
+        parse_str($bodyContents, $manualData);
+        $data = (array)$manualData;
+        error_log("Datos manuales: " . print_r($data, true));
     }
+    
+    error_log("Datos finales para update: " . print_r($data, true));
+    error_log("=== FIN DEBUG ===");
+
+    // Validar que los datos existen
+    if (empty($data['name'])) {
+        $response->getBody()->write(json_encode([
+            'error' => 'Campo name está vacío o no existe. Datos recibidos: ' . print_r($data, true)
+        ]));
+        return $response->withStatus(400)->withHeader('Content-Type', 'application/json');
+    }
+
+    $sql = "UPDATE teachers SET 
+                name = :name, 
+                apellido_paterno = :apellido_paterno, 
+                apellido_materno = :apellido_materno, 
+                sexo = :sexo, 
+                department_id = :department_id
+            WHERE id = :id";
+
+    $stmt = $this->pdo->prepare($sql);
+
+    try {
+        $stmt->execute([
+            'id' => $id,
+            'name' => $data['name'],
+            'apellido_paterno' => $data['apellido_paterno'],
+            'apellido_materno' => $data['apellido_materno'],
+            'sexo' => $data['sexo'],
+            'department_id' => $data['department_id'] ?? null,
+        ]);
+
+        if ($stmt->rowCount() === 0) {
+            $response->getBody()->write(json_encode(['error' => 'Teacher not found or no changes made']));
+            return $response->withStatus(404)->withHeader('Content-Type', 'application/json');
+        }
+
+        $response->getBody()->write(json_encode(['message' => 'Teacher updated']));
+        return $response->withHeader('Content-Type', 'application/json');
+    } catch (\PDOException $e) {
+        $response->getBody()->write(json_encode(['error' => $e->getMessage()]));
+        return $response->withStatus(400)->withHeader('Content-Type', 'application/json');
+    }
+}
 
     // Eliminar maestro
     public function delete(Request $request, Response $response, array $args): Response

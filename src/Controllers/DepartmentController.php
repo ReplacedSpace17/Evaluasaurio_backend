@@ -139,9 +139,10 @@ public function getDepartmentEvaluationById(Request $request, Response $response
         $scoreData = $stmt->fetch(PDO::FETCH_ASSOC);
         $scoreMean = $scoreData['score_mean'] ?? null;
 
-        // 🔹 Obtener opiniones del departamento
+        // 🔹 Obtener opiniones del departamento - 🔥 INCLUYENDO EL ID
         $stmt = $this->pdo->prepare("
             SELECT 
+                id, -- 🔥 AGREGAR EL ID DE LA EVALUACIÓN
                 opinion AS opiniones,
                 keyword AS keywords,
                 score AS calificacion,

@@ -11,15 +11,22 @@ use App\Controllers\TeacherRequestController;
 use App\Controllers\SubjectRequestController;
 use App\Controllers\StatisticsController;
 use App\Controllers\ReportsController;
+use App\Controllers\RequestRevisionController;
+use App\Controllers\AdminController;
 
 
 // Cargar configuración
 $settings = require __DIR__ . '/../config/settings.php';
 
+//New config email
+// Cargar configuración
+$settingsEmail = require __DIR__ . '/../config/email.php'; //neww
+
 // Obtener conexión PDO
 $pdo = Database::getConnection($settings['db']);
 
 $app = AppFactory::create();
+
 
 // Middleware para manejar CORS
 $app->add(function ($request, $handler) {
@@ -42,10 +49,12 @@ $departmentController = new DepartmentController($pdo);
 $subjectController = new SubjectController($pdo);
 $calificationController = new CalificationToTeacherController($pdo);
 $CalificationToTeacherController = new CalificationToTeacherController($pdo);
-$teacherRequestController = new TeacherRequestController($pdo);
-$subjectRequestController = new SubjectRequestController($pdo);
+$teacherRequestController = new TeacherRequestController($pdo, $settingsEmail['email']);
+$subjectRequestController = new SubjectRequestController($pdo, $settingsEmail['email']); 
 $statisticsController = new StatisticsController($pdo);
 $reportsController = new ReportsController($pdo);
+$requestRevisionController = new RequestRevisionController($pdo, $settingsEmail['email']);
+$adminController = new AdminController($pdo);
 
 
 // Rutas
@@ -103,7 +112,36 @@ $app->get('/departments/top', [$departmentController, 'getTopDepartments']);
 $app->post('/reports/add', [$reportsController, 'create']);
 $app->get('/reports/all', [$reportsController, 'getAllReports']);
 $app->get('/uploads/reports/{path:.+}', [ReportsController::class, 'serveImage']);
+$app->get('/request_revisions/countNewRequests', [$requestRevisionController, 'countNewRequests']);
+$app->post('/request_revisions/add', [$requestRevisionController, 'create']);
+$app->get('/request_revisions/all', [$requestRevisionController, 'getAll']);
+$app->delete('/request_revisions/{id}/delete', [$requestRevisionController, 'deleteContentOnly']);
+$app->delete('/request_revisions/{id}/delete-only', [$requestRevisionController, 'deleteRequestOnly']);
+$app->put('/request_revisions/{id}/update', [$requestRevisionController, 'updateStatus']);
+$app->post('/admin/register', [$adminController, 'create']);
+$app->post('/admin/login', [$adminController, 'login']);
+$app->get('/admin/is-first', [$adminController, 'isMyFirst']);
+$app->get('/settings/email', [$requestRevisionController, 'getSettingsEmail']);
 
+//new getAdminEmails
+$app->get('/admin/emails', [$adminController, 'getAllAdmins']);
+//deleteAdmin
+$app->delete('/admin/{id}/delete', [$adminController, 'deleteAdmin']);
+//updatePasswordByAdmin
+$app->put('/admin/{id}/update-password', [$adminController, 'updatePasswordByAdmin']);
+//approve
+$app->post('/teacher_requests/{id}/approve', [$teacherRequestController, 'approve']);
+$app->delete('/teacher_requests/{id}', [$teacherRequestController, 'reject']);
+
+//subjet
+$app->post('/subject_requests/{id}/approve', [$subjectRequestController, 'approve']);
+$app->post('/subject_requests/{id}/reject', [$subjectRequestController, 'reject']);
+$app->post('/subjects', [$subjectController, 'create']);
+$app->put('/subjects/{id}', [$subjectController, 'update']);
+$app->delete('/subjects/{id}', [$subjectController, 'delete']);
+
+
+//debugEnv
 
 $app->run();
 
