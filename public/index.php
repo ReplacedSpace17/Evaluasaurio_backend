@@ -121,7 +121,6 @@ $app->put('/request_revisions/{id}/update', [$requestRevisionController, 'update
 $app->post('/admin/register', [$adminController, 'create']);
 $app->post('/admin/login', [$adminController, 'login']);
 $app->get('/admin/is-first', [$adminController, 'isMyFirst']);
-$app->get('/settings/email', [$requestRevisionController, 'getSettingsEmail']);
 
 //new getAdminEmails
 $app->get('/admin/emails', [$adminController, 'getAllAdmins']);
